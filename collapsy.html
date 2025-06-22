@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collapsy</title>
+    <style>
+        /* CSS Variables for easy theming and maintenance */
+        :root {
+            --board-bg: #2c3e50;
+            --card-bg: #ecf0f1;
+            --card-collapsed-bg: #34495e;
+            --pawn1-color: #e74c3c;
+            --pawn2-color: #3498db;
+            --text-color: #2c3e50;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --card-size: clamp(60px, 18vmin, 120px);
+            --gap-size: 8px;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--board-bg);
+            color: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* --- 1. Title Animation --- */
+        #title {
+            perspective: 800px;
+            margin-bottom: 10px;
+            font-size: 3em;
+        }
+        #title span {
+            display: inline-block;
+            animation: collapsy-anim 1.5s forwards;
+            opacity: 0;
+            transform-origin: bottom center;
+        }
+        @keyframes collapsy-anim {
+            0% {
+                opacity: 0;
+                transform: translateY(-100px) rotateX(90deg) scale(1.5);
+            }
+            60% {
+                opacity: 1;
+                transform: translateY(10px) rotateX(-20deg) scale(1);
+            }
+            80% {
+                transform: translateY(-5px) rotateX(10deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) rotateX(0) scale(1);
+            }
+        }
+
+        #game-container {
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #game-container.visible {
+            opacity: 1;
+        }
+
+        #game-info {
+            height: 40px;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            font-weight: bold;
+            text-align: center;
+            transition: color 0.3s ease;
+        }
+
+        #board-container {
+            display: grid;
+            grid-template-columns: repeat(4, var(--card-size));
+            grid-template-rows: repeat(4, var(--card-size));
+            gap: var(--gap-size);
+            padding: var(--gap-size);
+            background-color: #1e2b38;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: calc(var(--card-size) * 0.4);
+            font-weight: bold;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.2s ease, opacity 0.3s;
+            user-select: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .card:not(.collapsed):hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+        }
+        
+        .card.collapsed {
+            background-color: var(--card-collapsed-bg);
+            cursor: not-allowed;
+            transform: scale(0);
+            opacity: 0;
+            box-shadow: none;
+        }
+
+        .card.joker-color { color: var(--pawn1-color); }
+        .card.joker-bw { color: var(--pawn2-color); }
+        .card.value-4 { color: #27ae60; }
+        .card.value-3 { color: #f39c12; }
+        .card.value-2 { color: #2980b9; }
+
+        /* --- 2. Shake Animation for Invalid Move --- */
+        .shake {
+            animation: shake-anim 0.5s ease-in-out;
+        }
+        @keyframes shake-anim {
+            10%, 90% { transform: translateX(-3px); }
+            20%, 80% { transform: translateX(3px); }
+            30%, 50%, 70% { transform: translateX(-3px); }
+            40%, 60% { transform: translateX(3px); }
+        }
+
+        /* --- 3. Translucent Pawn --- */
+        .pawn {
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 4px solid rgba(255, 255, 255, 0.8);
+            transition: box-shadow 0.3s;
+        }
+        .pawn1 { background-color: rgba(231, 76, 60, 0.75); } /* --pawn1-color with alpha */
+        .pawn2 { background-color: rgba(52, 152, 219, 0.75); } /* --pawn2-color with alpha */
+
+        .pawn.highlight-current {
+            box-shadow: 0 0 15px 5px var(--pawn-glow-color);
+        }
+
+        #reset-button {
+            margin-top: 25px;
+            padding: 12px 25px;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: white;
+            background-color: #9b59b6;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+
+        #reset-button:hover {
+            background-color: #8e44ad;
+            transform: scale(1.05);
+        }
+
+        /* --- 4. Victory Screen Animation --- */
+        #victory-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+        #victory-screen.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .victory-box {
+            background: var(--board-bg);
+            padding: 40px 60px;
+            border-radius: 15px;
+            text-align: center;
+            transform: scale(0.7);
+            opacity: 0;
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.3s ease;
+        }
+        #victory-screen.visible .victory-box {
+            transform: scale(1);
+            opacity: 1;
+        }
+        #victory-message {
+            font-size: 3em;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1 id="title"></h1>
+
+    <div id="game-container">
+        <div id="game-info">Loading game...</div>
+        <div id="board-container"></div>
+        <button id="reset-button">New Game</button>
+    </div>
+
+    <div id="victory-screen">
+        <div class="victory-box">
+            <div id="victory-message"></div>
+            <button id="play-again-button">Play Again</button>
+        </div>
+    </div>
+
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Elements ---
+        const titleEl = document.getElementById('title');
+        const gameContainer = document.getElementById('game-container');
+        const boardContainer = document.getElementById('board-container');
+        const gameInfo = document.getElementById('game-info');
+        const resetButton = document.getElementById('reset-button');
+        const victoryScreen = document.getElementById('victory-screen');
+        const victoryMessage = document.getElementById('victory-message');
+        const playAgainButton = document.getElementById('play-again-button');
+        playAgainButton.id = 'reset-button'; // Re-use the same style and logic
+
+        // --- Game Constants & State ---
+        const BOARD_SIZE = 4;
+        let gameState = {};
+
+        // 5. Changed 'A' to '1'
+        const DECK = [
+            '1', '1', '1', '1', '2', '2', '2', '2',
+            '3', '3', '3', '3', '4', '4', 'J1', 'J2'
+        ];
+
+        // --- Game Logic Functions ---
+        function runTitleAnimation(callback) {
+            titleEl.innerHTML = '';
+            gameContainer.classList.remove('visible');
+            victoryScreen.classList.remove('visible');
+
+            const titleText = 'Collapsy';
+            titleText.split('').forEach((char, index) => {
+                const span = document.createElement('span');
+                span.textContent = char;
+                span.style.animationDelay = `${index * 0.1}s`;
+                titleEl.appendChild(span);
+            });
+            
+            setTimeout(callback, 1500); // Wait for animation to finish
+        }
+
+        function initGame() {
+            runTitleAnimation(() => {
+                gameContainer.classList.add('visible');
+                
+                const shuffledDeck = [...DECK].sort(() => Math.random() - 0.5);
+                gameState = {
+                    board: [],
+                    players: [
+                        { id: 1, pos: null, color: 'var(--pawn1-color)', glowColor: '#fca5a5' },
+                        { id: 2, pos: null, color: 'var(--pawn2-color)', glowColor: '#93c5fd' }
+                    ],
+                    currentPlayerId: 1,
+                    firstTurn: { 1: true, 2: true },
+                    gameOver: false,
+                    winner: null
+                };
+
+                let joker1Pos, joker2Pos;
+                for (let r = 0; r < BOARD_SIZE; r++) {
+                    gameState.board[r] = [];
+                    for (let c = 0; c < BOARD_SIZE; c++) {
+                        const cardValue = shuffledDeck[r * BOARD_SIZE + c];
+                        gameState.board[r][c] = {
+                            value: cardValue,
+                            collapsed: false,
+                            pawn: null
+                        };
+                        if (cardValue === 'J1') joker1Pos = { r, c };
+                        if (cardValue === 'J2') joker2Pos = { r, c };
+                    }
+                }
+
+                gameState.players[0].pos = joker1Pos;
+                gameState.board[joker1Pos.r][joker1Pos.c].pawn = 1;
+
+                gameState.players[1].pos = joker2Pos;
+                gameState.board[joker2Pos.r][joker2Pos.c].pawn = 2;
+
+                render();
+                startTurn();
+            });
+        }
+
+        function getCardValue(valueStr) {
+            if (valueStr.startsWith('J')) return 0;
+            return parseInt(valueStr, 10);
+        }
+
+        function render() {
+            boardContainer.innerHTML = '';
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cellData = gameState.board[r][c];
+                    const cardEl = document.createElement('div');
+                    cardEl.classList.add('card');
+                    cardEl.dataset.r = r;
+                    cardEl.dataset.c = c;
+                    
+                    if (cellData.collapsed) {
+                        cardEl.classList.add('collapsed');
+                    } else {
+                        let displayValue = cellData.value;
+                        if (cellData.value === 'J1') {
+                            displayValue = '★';
+                            cardEl.classList.add('joker-color');
+                        }
+                        if (cellData.value === 'J2') {
+                            displayValue = '☆';
+                            cardEl.classList.add('joker-bw');
+                        }
+                        if (!isNaN(parseInt(cellData.value))) {
+                            cardEl.classList.add(`value-${cellData.value}`);
+                        }
+                        cardEl.textContent = displayValue;
+                    }
+
+                    if (cellData.pawn) {
+                        const pawnEl = document.createElement('div');
+                        pawnEl.classList.add('pawn', `pawn${cellData.pawn}`);
+                        cardEl.appendChild(pawnEl);
+                    }
+                    boardContainer.appendChild(cardEl);
+                }
+            }
+            updateGameInfo();
+        }
+        
+        function updateGameInfo() {
+            if (gameState.gameOver) {
+                showVictoryScreen();
+            } else {
+                const currentPlayer = gameState.players[gameState.currentPlayerId - 1];
+                gameInfo.innerHTML = `Player ${currentPlayer.id}'s Turn`;
+                gameInfo.style.color = currentPlayer.color;
+            }
+        }
+        
+        function highlightCurrentPlayer() {
+            document.querySelectorAll('.pawn.highlight-current').forEach(el => el.classList.remove('highlight-current'));
+            
+            if(gameState.gameOver) return;
+
+            const currentPlayer = gameState.players[gameState.currentPlayerId - 1];
+            const startPos = currentPlayer.pos;
+            const startCardEl = document.querySelector(`.card[data-r='${startPos.r}'][data-c='${startPos.c}']`);
+            
+            if (startCardEl) {
+                const pawnEl = startCardEl.querySelector('.pawn');
+                if (pawnEl) {
+                    pawnEl.style.setProperty('--pawn-glow-color', currentPlayer.glowColor);
+                    pawnEl.classList.add('highlight-current');
+                }
+            }
+        }
+
+        function startTurn() {
+            if (gameState.gameOver) return;
+            
+            const currentPlayer = gameState.players[gameState.currentPlayerId - 1];
+            const legalMoves = getLegalMoves(currentPlayer);
+
+            if (legalMoves.length === 0) {
+                gameState.gameOver = true;
+                gameState.winner = gameState.currentPlayerId === 1 ? 2 : 1;
+                render(); // This will trigger the victory screen via updateGameInfo
+                return;
+            }
+            
+            highlightCurrentPlayer();
+        }
+
+        function getLegalMoves(player) {
+            const startPos = player.pos;
+            const cardValue = gameState.board[startPos.r][startPos.c].value;
+            let moveDistances = [];
+
+            if (gameState.firstTurn[player.id]) {
+                moveDistances = [1, 2, 3, 4];
+            } else {
+                const dist = getCardValue(cardValue);
+                if (dist > 0) moveDistances.push(dist);
+            }
+            
+            if (moveDistances.length === 0) return [];
+            
+            let allMoves = new Set();
+            moveDistances.forEach(dist => {
+                 const moves = findPaths(startPos, dist);
+                 moves.forEach(move => allMoves.add(`${move.r},${move.c}`));
+            });
+            
+            return Array.from(allMoves).map(s => {
+                const [r, c] = s.split(',').map(Number);
+                return { r, c };
+            });
+        }
+        
+        function findPaths(startPos, distance) {
+            const queue = [{ pos: startPos, steps: distance, path: [startPos] }];
+            const destinations = new Map();
+            const opponentId = gameState.currentPlayerId === 1 ? 2 : 1;
+            const opponentPos = gameState.players[opponentId - 1].pos;
+
+            while (queue.length > 0) {
+                const { pos, steps, path } = queue.shift();
+
+                if (steps === 0) {
+                    if (pos.r !== opponentPos.r || pos.c !== opponentPos.c) {
+                        destinations.set(`${pos.r},${pos.c}`, pos);
+                    }
+                    continue;
+                }
+
+                const directions = [{r: -1, c: 0}, {r: 1, c: 0}, {r: 0, c: -1}, {r: 0, c: 1}];
+                
+                for (const dir of directions) {
+                    let nextR = pos.r + dir.r;
+                    let nextC = pos.c + dir.c;
+
+                    if (nextR < 0) { if (!isEdgeCollapsed('top', nextC)) nextR = BOARD_SIZE - 1; else continue; }
+                    if (nextR >= BOARD_SIZE) { if (!isEdgeCollapsed('bottom', nextC)) nextR = 0; else continue; }
+                    if (nextC < 0) { if (!isEdgeCollapsed('left', nextR)) nextC = BOARD_SIZE - 1; else continue; }
+                    if (nextC >= BOARD_SIZE) { if (!isEdgeCollapsed('right', nextR)) nextC = 0; else continue; }
+                    
+                    const nextPos = { r: nextR, c: nextC };
+                    if (gameState.board[nextPos.r][nextPos.c].collapsed) continue;
+                    if (path.some(p => p.r === nextPos.r && p.c === nextPos.c)) continue;
+                    
+                    queue.push({ pos: nextPos, steps: steps - 1, path: [...path, nextPos] });
+                }
+            }
+            return Array.from(destinations.values());
+        }
+
+        function isEdgeCollapsed(edge, index) {
+            switch (edge) {
+                case 'top': return gameState.board[0][index].collapsed;
+                case 'bottom': return gameState.board[BOARD_SIZE - 1][index].collapsed;
+                case 'left': return gameState.board[index][0].collapsed;
+                case 'right': return gameState.board[index][BOARD_SIZE - 1].collapsed;
+            }
+            return true;
+        }
+
+        function handleCardClick(event) {
+            if (gameState.gameOver) return;
+            const cardEl = event.target.closest('.card');
+            if (!cardEl || cardEl.classList.contains('collapsed')) return;
+            
+            const toPos = { r: parseInt(cardEl.dataset.r), c: parseInt(cardEl.dataset.c) };
+            const currentPlayer = gameState.players[gameState.currentPlayerId - 1];
+            const legalMoves = getLegalMoves(currentPlayer);
+            const isLegal = legalMoves.some(m => m.r === toPos.r && m.c === toPos.c);
+            
+            if (isLegal) {
+                const fromPos = currentPlayer.pos;
+                gameState.board[fromPos.r][fromPos.c].pawn = null;
+                gameState.board[toPos.r][toPos.c].pawn = currentPlayer.id;
+                currentPlayer.pos = toPos;
+                gameState.board[fromPos.r][fromPos.c].collapsed = true;
+                if (gameState.firstTurn[currentPlayer.id]) {
+                    gameState.firstTurn[currentPlayer.id] = false;
+                }
+                gameState.currentPlayerId = gameState.currentPlayerId === 1 ? 2 : 1;
+                render();
+                startTurn();
+            } else {
+                // Shake animation for invalid move
+                cardEl.classList.add('shake');
+                cardEl.addEventListener('animationend', () => cardEl.classList.remove('shake'), { once: true });
+            }
+        }
+        
+        function showVictoryScreen() {
+            const winner = gameState.players[gameState.winner - 1];
+            victoryMessage.textContent = `Player ${winner.id} Wins!`;
+            victoryMessage.style.color = winner.color;
+            victoryScreen.classList.add('visible');
+        }
+
+        // --- Event Listeners ---
+        boardContainer.addEventListener('click', handleCardClick);
+        resetButton.addEventListener('click', initGame);
+        playAgainButton.addEventListener('click', initGame);
+
+        // --- Initial Call ---
+        initGame();
+    });
+    </script>
+</body>
+</html>
