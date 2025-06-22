@@ -5,25 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Collapsy</title>
     <style>
-        /* CSS Variables for easy theming and maintenance */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+        /* --- CSS Variables & Core Setup --- */
         :root {
-            --board-bg: #2c3e50;
-            --card-bg: #ecf0f1;
-            --card-collapsed-bg: #34495e;
-            --pawn1-color: #e74c3c;
-            --pawn2-color: #3498db;
-            --text-color: #2c3e50;
-            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            --card-size: clamp(60px, 18vmin, 120px);
+            --bg-dark: #1a202c;
+            --bg-medium: #2d3748;
+            --bg-light: #4a5568;
+            --text-light: #e2e8f0;
+            --text-dark: #1a202c;
+            --pawn1-color: #e53e3e; --pawn1-glow: #fed7d7;
+            --pawn2-color: #3182ce; --pawn2-glow: #bee3f8;
+            --pawn3-color: #38a169; --pawn3-glow: #c6f6d5;
+            --pawn4-color: #d69e2e; --pawn4-glow: #feebc8;
+            --accent-color: #805ad5;
+            --accent-hover: #9f7aea;
+            --card-size: clamp(50px, 15vmin, 100px);
             --gap-size: 8px;
+            --font-family: 'Poppins', sans-serif;
+            --player-tint-color: transparent; /* For player turn background tint */
         }
 
         body {
             font-family: var(--font-family);
-            background-color: var(--board-bg);
-            color: var(--card-bg);
+            background-color: var(--bg-dark);
+            color: var(--text-light);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
@@ -31,298 +38,430 @@
             padding: 20px;
             box-sizing: border-box;
             overflow: hidden;
-        }
-
-        /* --- 1. Title Animation --- */
-        #title {
-            perspective: 800px;
-            margin-bottom: 10px;
-            font-size: 3em;
-        }
-        #title span {
-            display: inline-block;
-            animation: collapsy-anim 1.5s forwards;
-            opacity: 0;
-            transform-origin: bottom center;
-        }
-        @keyframes collapsy-anim {
-            0% {
-                opacity: 0;
-                transform: translateY(-100px) rotateX(90deg) scale(1.5);
-            }
-            60% {
-                opacity: 1;
-                transform: translateY(10px) rotateX(-20deg) scale(1);
-            }
-            80% {
-                transform: translateY(-5px) rotateX(10deg);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0) rotateX(0) scale(1);
-            }
-        }
-
-        #game-container {
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        #game-container.visible {
-            opacity: 1;
-        }
-
-        #game-info {
-            height: 40px;
-            font-size: 1.5em;
-            margin-bottom: 15px;
-            font-weight: bold;
-            text-align: center;
-            transition: color 0.3s ease;
-        }
-
-        #board-container {
-            display: grid;
-            grid-template-columns: repeat(4, var(--card-size));
-            grid-template-rows: repeat(4, var(--card-size));
-            gap: var(--gap-size);
-            padding: var(--gap-size);
-            background-color: #1e2b38;
-            border-radius: 10px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            color: var(--text-color);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: calc(var(--card-size) * 0.4);
-            font-weight: bold;
-            position: relative;
-            cursor: pointer;
-            transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.2s ease, opacity 0.3s;
-            user-select: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        .card:not(.collapsed):hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 12px rgba(0,0,0,0.2);
+            /* --- Animated Background --- */
+            background: linear-gradient(315deg, #1a202c, #2d3748, #1a202c);
+            background-size: 400% 400%;
+            animation: gradient-bg 20s ease infinite;
+            position: relative; /* Needed for the ::before pseudo-element */
         }
         
-        .card.collapsed {
-            background-color: var(--card-collapsed-bg);
-            cursor: not-allowed;
-            transform: scale(0);
-            opacity: 0;
-            box-shadow: none;
-        }
-
-        .card.joker-color { color: var(--pawn1-color); }
-        .card.joker-bw { color: var(--pawn2-color); }
-        .card.value-4 { color: #27ae60; }
-        .card.value-3 { color: #f39c12; }
-        .card.value-2 { color: #2980b9; }
-
-        /* --- 2. Shake Animation for Invalid Move --- */
-        .shake {
-            animation: shake-anim 0.5s ease-in-out;
-        }
-        @keyframes shake-anim {
-            10%, 90% { transform: translateX(-3px); }
-            20%, 80% { transform: translateX(3px); }
-            30%, 50%, 70% { transform: translateX(-3px); }
-            40%, 60% { transform: translateX(3px); }
-        }
-
-        /* --- 3. Translucent Pawn --- */
-        .pawn {
-            width: 60%;
-            height: 60%;
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            border: 4px solid rgba(255, 255, 255, 0.8);
-            transition: box-shadow 0.3s;
-        }
-        .pawn1 { background-color: rgba(231, 76, 60, 0.75); } /* --pawn1-color with alpha */
-        .pawn2 { background-color: rgba(52, 152, 219, 0.75); } /* --pawn2-color with alpha */
-
-        .pawn.highlight-current {
-            box-shadow: 0 0 15px 5px var(--pawn-glow-color);
-        }
-
-        #reset-button {
-            margin-top: 25px;
-            padding: 12px 25px;
-            font-size: 1.2em;
-            font-weight: bold;
-            color: white;
-            background-color: #9b59b6;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s, transform 0.2s;
-        }
-
-        #reset-button:hover {
-            background-color: #8e44ad;
-            transform: scale(1.05);
-        }
-
-        /* --- 4. Victory Screen Animation --- */
-        #victory-screen {
+        /* New: Player turn background tint overlay */
+        body::before {
+            content: '';
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0, 0, 0, 0.7);
+            inset: 0;
+            background-color: var(--player-tint-color);
+            z-index: -1;
+            transition: background-color 0.8s ease-in-out;
+            pointer-events: none;
+        }
+        
+        @keyframes gradient-bg {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- Splash Screen --- */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            background-color: var(--bg-dark);
+            z-index: 300;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            flex-direction: column;
-            z-index: 100;
+            cursor: pointer;
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+        #splash-screen.hidden {
             opacity: 0;
+            transform: scale(1.1);
             pointer-events: none;
-            transition: opacity 0.5s ease;
         }
-        #victory-screen.visible {
-            opacity: 1;
-            pointer-events: auto;
+        #splash-title {
+            font-size: clamp(3rem, 15vmin, 7rem);
+            font-weight: 700;
+            letter-spacing: -2px;
+            perspective: 800px;
         }
-        .victory-box {
-            background: var(--board-bg);
-            padding: 40px 60px;
-            border-radius: 15px;
-            text-align: center;
-            transform: scale(0.7);
+        #splash-title span {
+            display: inline-block;
             opacity: 0;
-            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55), opacity 0.3s ease;
+            transform: translateY(50px) rotateX(90deg);
+            animation: splash-chars 1s forwards cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        #victory-screen.visible .victory-box {
-            transform: scale(1);
-            opacity: 1;
+        @keyframes splash-chars {
+            to { opacity: 1; transform: translateY(0) rotateX(0); }
         }
-        #victory-message {
-            font-size: 3em;
-            margin-bottom: 20px;
-            font-weight: bold;
+        #splash-prompt {
+            margin-top: 2rem;
+            font-size: 1.2rem;
+            color: var(--text-light);
+            opacity: 0;
+            animation: fade-in 1s 1.5s forwards;
         }
+
+        /* --- Modal & Setup Screen Styles --- */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.visible { opacity: 1; pointer-events: auto; }
+        .modal-box {
+            background: var(--bg-medium);
+            padding: 30px 40px;
+            border-radius: 16px;
+            text-align: left;
+            transform: scale(0.9); opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 600px; max-height: 90vh; overflow-y: auto;
+            border: 1px solid var(--bg-light);
+        }
+        .modal-overlay.visible .modal-box { transform: scale(1); opacity: 1; }
+        .modal-box h2 { text-align: center; margin-top: 0; font-weight: 700; }
+        .modal-box .modal-actions { text-align: center; margin-top: 30px; }
+        
+        /* --- Modern Buttons --- */
+        .button-group button, .primary-button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-family: var(--font-family);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .button-group button {
+            background-color: var(--bg-light);
+            color: var(--text-light);
+            margin-right: 10px;
+        }
+        .button-group button:hover {
+            background-color: #5a6a82;
+            transform: translateY(-2px);
+        }
+        .button-group button.selected {
+            background: linear-gradient(45deg, var(--accent-color), var(--accent-hover));
+            color: white;
+            box-shadow: 0 4px 15px -5px var(--accent-color);
+            transform: translateY(-2px);
+        }
+        .button-group button:disabled {
+            opacity: 0.5; background: var(--bg-light); cursor: not-allowed;
+            transform: none;
+        }
+        .primary-button {
+            background: linear-gradient(45deg, var(--accent-color), var(--accent-hover));
+            color: white;
+            box-shadow: 0 4px 20px -5px var(--accent-color);
+        }
+        .primary-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px -5px var(--accent-color);
+        }
+        .primary-button:active {
+            transform: translateY(-1px);
+        }
+        
+        /* --- Core Game Styles --- */
+        #main-content { display: none; flex-direction: column; align-items: center;}
+        #game-info {
+            height: 40px; font-size: 1.5em; margin-bottom: 20px;
+            font-weight: 600; text-align: center; transition: all 0.3s ease;
+        }
+        @keyframes fade-in { to { opacity: 1; } }
+        #board-container { display: grid; gap: var(--gap-size); padding: var(--gap-size); background-color: rgba(0,0,0,0.2); border-radius: 12px; }
+        .card {
+            background-color: #a0aec0; color: var(--text-dark);
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-size: calc(var(--card-size) * 0.45); font-weight: 700;
+            position: relative; cursor: pointer; user-select: none;
+            width: var(--card-size); height: var(--card-size);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        /* Change 4: Card Hover Glow */
+        .card:not(.collapsed):hover { 
+            transform: scale(1.1); 
+            z-index: 10;
+            box-shadow: 0 0 15px 3px rgba(236, 240, 241, 0.3);
+        }
+        .card.collapsed {
+            background-color: transparent;
+            transform: scale(0.5); opacity: 0; pointer-events: none;
+        }
+        .card.shake { animation: shake-anim 0.4s ease-in-out; }
+        @keyframes shake-anim { 0%, 100% { transform: translateX(0) scale(1.1); } 25% { transform: translateX(-5px) scale(1.1); } 75% { transform: translateX(5px) scale(1.1); } }
+        .pawn {
+            width: 60%; height: 60%; border-radius: 50%; position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            border: 4px solid rgba(255, 255, 255, 0.8);
+            transition: box-shadow 0.3s;
+            /* Change 1: Make pawn translucent */
+            opacity: 0.75; 
+        }
+        .pawn1 { background-color: var(--pawn1-color); } .pawn2 { background-color: var(--pawn2-color); }
+        .pawn3 { background-color: var(--pawn3-color); } .pawn4 { background-color: var(--pawn4-color); }
+        .pawn.highlight-current { box-shadow: 0 0 20px 5px var(--pawn-glow-color); }
+        
+        /* --- Pawn Movement Animation --- */
+        .ghost-pawn {
+            width: calc(var(--card-size) * 0.6); height: calc(var(--card-size) * 0.6);
+            border-radius: 50%; position: absolute; z-index: 50;
+            border: 4px solid rgba(255, 255, 255, 0.8);
+            transform: translate(-50%, -50%);
+            transition: top 0.4s ease-in-out, left 0.4s ease-in-out;
+        }
+
+        /* --- Winner Screen & Confetti --- */
+        #victory-screen { z-index: 200; }
+        #victory-message { font-size: 2.5em; font-weight: 700; }
+        .confetti-container { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+        .confetti {
+            position: absolute; width: 10px; height: 10px;
+            opacity: 0;
+            animation: fall 5s linear forwards;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-10vh) rotateZ(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotateZ(720deg); opacity: 0; }
+        }
+
     </style>
 </head>
 <body>
 
-    <h1 id="title"></h1>
-
-    <div id="game-container">
-        <div id="game-info">Loading game...</div>
-        <div id="board-container"></div>
-        <button id="reset-button">New Game</button>
+    <div id="splash-screen">
+        <h1 id="splash-title"></h1>
+        <p id="splash-prompt">Click anywhere to begin</p>
     </div>
 
-    <div id="victory-screen">
-        <div class="victory-box">
-            <div id="victory-message"></div>
-            <button id="play-again-button">Play Again</button>
+    <div id="rules-screen" class="modal-overlay">
+        <div class="modal-box">
+            <h2>Game Rules</h2>
+            <p><strong>Objective:</strong> Be the last player who can make a legal move.</p>
+            <p><strong>Movement:</strong> The number on your card is how many spaces you must move. On your first turn only, you may move 1-4 spaces. The board wraps around.</p>
+            <p><strong>Collapsing:</strong> After moving, your starting card is removed. Empty spaces are impassable.</p>
+            <div class="modal-actions">
+                <button id="show-setup-button" class="primary-button">Continue</button>
+            </div>
         </div>
     </div>
 
+    <div id="setup-screen" class="modal-overlay">
+        <div class="modal-box">
+            <h2>Game Setup</h2>
+            <div class="option-group">
+                <label>Mode</label>
+                <div id="mode-selector" class="button-group">
+                    <button data-value="pvp" class="selected">vs Player</button>
+                    <button data-value="pve">vs AI</button>
+                </div>
+            </div>
+            <div class="option-group" id="player-count-group">
+                <label>Players</label>
+                <div id="player-selector" class="button-group">
+                    <button data-value="2" class="selected">2</button>
+                    <button data-value="3">3</button>
+                    <button data-value="4">4</button>
+                </div>
+            </div>
+            <div class="option-group">
+                <label>Grid Size</label>
+                <div id="grid-selector" class="button-group">
+                    <button data-value="4">4 x 4</button>
+                    <button data-value="5" class="selected">5 x 5</button>
+                    <button data-value="6">6 x 6</button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="start-game-button" class="primary-button">Start Game</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-content">
+        <div id="game-info">Loading...</div>
+        <div id="board-container"></div>
+        <button id="reset-button" class="primary-button" style="margin-top: 25px;">New Game</button>
+    </div>
+    
+    <div id="victory-screen" class="modal-overlay">
+        <div class="modal-box">
+            <h2 id="victory-message"></h2>
+            <div class="modal-actions">
+                <button id="play-again-button" class="primary-button">Play Again</button>
+            </div>
+            <div class="confetti-container"></div>
+        </div>
+    </div>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         // --- DOM Elements ---
-        const titleEl = document.getElementById('title');
-        const gameContainer = document.getElementById('game-container');
+        const splashScreen = document.getElementById('splash-screen');
+        const rulesScreen = document.getElementById('rules-screen');
+        const setupScreen = document.getElementById('setup-screen');
+        const mainContent = document.getElementById('main-content');
         const boardContainer = document.getElementById('board-container');
         const gameInfo = document.getElementById('game-info');
-        const resetButton = document.getElementById('reset-button');
         const victoryScreen = document.getElementById('victory-screen');
-        const victoryMessage = document.getElementById('victory-message');
-        const playAgainButton = document.getElementById('play-again-button');
-        playAgainButton.id = 'reset-button'; // Re-use the same style and logic
-
-        // --- Game Constants & State ---
-        const BOARD_SIZE = 4;
+        
+        // --- Game State & Constants ---
         let gameState = {};
-
-        // 5. Changed 'A' to '1'
-        const DECK = [
-            '1', '1', '1', '1', '2', '2', '2', '2',
-            '3', '3', '3', '3', '4', '4', 'J1', 'J2'
+        let isAnimating = false;
+        let BOARD_SIZE = 4;
+        const PLAYER_CONFIG = [
+            { id: 1, color: 'var(--pawn1-color)', glow: 'var(--pawn1-glow)', joker: 'J1', symbol: '★' },
+            { id: 2, color: 'var(--pawn2-color)', glow: 'var(--pawn2-glow)', joker: 'J2', symbol: '☆' },
+            { id: 3, color: 'var(--pawn3-color)', glow: 'var(--pawn3-glow)', joker: 'J3', symbol: '♦' },
+            { id: 4, color: 'var(--pawn4-color)', glow: 'var(--pawn4-glow)', joker: 'J4', symbol: '♣' }
         ];
 
-        // --- Game Logic Functions ---
-        function runTitleAnimation(callback) {
-            titleEl.innerHTML = '';
-            gameContainer.classList.remove('visible');
-            victoryScreen.classList.remove('visible');
-
-            const titleText = 'Collapsy';
-            titleText.split('').forEach((char, index) => {
+        // --- Splash Screen & Setup ---
+        function initSplash() {
+            const title = "Collapsy";
+            const splashTitle = document.getElementById('splash-title');
+            splashTitle.innerHTML = '';
+            title.split('').forEach((char, i) => {
                 const span = document.createElement('span');
                 span.textContent = char;
-                span.style.animationDelay = `${index * 0.1}s`;
-                titleEl.appendChild(span);
+                span.style.animationDelay = `${i * 0.05}s`;
+                splashTitle.appendChild(span);
+            });
+            // Ensure prompt animation restarts
+            const prompt = document.getElementById('splash-prompt');
+            prompt.style.animation = 'none';
+            void prompt.offsetWidth; // Trigger reflow
+            prompt.style.animation = '';
+
+            splashScreen.addEventListener('click', () => {
+                splashScreen.classList.add('hidden');
+                rulesScreen.classList.add('visible');
+            }, { once: true });
+        }
+        
+        let gameOptions = { mode: 'pvp', players: 2, size: 5 };
+        function setupUI() {
+            document.querySelectorAll('#setup-screen .button-group button').forEach(b => {
+                b.addEventListener('click', (e) => {
+                    if (e.target.disabled) return;
+                    const group = e.target.parentElement.id;
+                    const value = e.target.dataset.value;
+                    if (group === 'mode-selector') {
+                        gameOptions.mode = value;
+                        document.getElementById('player-count-group').style.display = value === 'pvp' ? 'block' : 'none';
+                        if (value === 'pve') gameOptions.players = 2;
+                    } else if (group === 'player-selector') {
+                        gameOptions.players = parseInt(value);
+                    } else if (group === 'grid-selector') {
+                        gameOptions.size = parseInt(value);
+                    }
+                    updateUISelections();
+                });
+            });
+            document.getElementById('show-setup-button').addEventListener('click', () => {
+                rulesScreen.classList.remove('visible');
+                setupScreen.classList.add('visible');
+                updateUISelections();
+            });
+            document.getElementById('start-game-button').addEventListener('click', () => {
+                setupScreen.classList.remove('visible');
+                mainContent.style.display = 'flex';
+                initGame();
             });
             
-            setTimeout(callback, 1500); // Wait for animation to finish
+            // Change 3: Reset function now shows splash screen
+            const resetFn = () => {
+                victoryScreen.classList.remove('visible');
+                document.querySelector('.confetti-container').innerHTML = '';
+                mainContent.style.display = 'none';
+                
+                // Reset player tint
+                document.documentElement.style.setProperty('--player-tint-color', 'transparent');
+                
+                // Un-hide splash and re-initialize animations
+                splashScreen.classList.remove('hidden'); 
+                splashScreen.style.transform = 'scale(1)'; 
+                initSplash(); 
+            };
+            document.getElementById('reset-button').addEventListener('click', resetFn);
+            document.getElementById('play-again-button').addEventListener('click', resetFn);
+        }
+
+        function updateUISelections() {
+            // Logic to update button styles and enforce rules
+            document.querySelectorAll('#setup-screen .button-group button').forEach(b => b.classList.remove('selected'));
+            document.querySelector(`#mode-selector [data-value="${gameOptions.mode}"]`).classList.add('selected');
+            document.querySelector(`#player-selector [data-value="${gameOptions.players}"]`).classList.add('selected');
+            
+            const minSize = gameOptions.players > 2 ? (gameOptions.players > 3 ? 6 : 5) : 4;
+            document.querySelectorAll('#grid-selector button').forEach(b => {
+                b.disabled = parseInt(b.dataset.value) < minSize;
+            });
+            if (gameOptions.size < minSize) {
+                gameOptions.size = minSize;
+            }
+            document.querySelector(`#grid-selector [data-value="${gameOptions.size}"]`).classList.add('selected');
+        }
+
+        // --- Core Game Functions ---
+        function generateDeck(size, playerCount) {
+            const jokers = PLAYER_CONFIG.slice(0, playerCount).map(p => p.joker);
+            const numRegularCards = (size * size) - playerCount;
+            let regularCards = [];
+            let currentCardValue = 1;
+            while (regularCards.length < numRegularCards) {
+                const remainingNeeded = numRegularCards - regularCards.length;
+                const cardsToAdd = Math.min(4, remainingNeeded);
+                for (let i = 0; i < cardsToAdd; i++) regularCards.push(String(currentCardValue));
+                currentCardValue++;
+            }
+            return [...regularCards, ...jokers];
         }
 
         function initGame() {
-            runTitleAnimation(() => {
-                gameContainer.classList.add('visible');
-                
-                const shuffledDeck = [...DECK].sort(() => Math.random() - 0.5);
-                gameState = {
-                    board: [],
-                    players: [
-                        { id: 1, pos: null, color: 'var(--pawn1-color)', glowColor: '#fca5a5' },
-                        { id: 2, pos: null, color: 'var(--pawn2-color)', glowColor: '#93c5fd' }
-                    ],
-                    currentPlayerId: 1,
-                    firstTurn: { 1: true, 2: true },
-                    gameOver: false,
-                    winner: null
-                };
+            isAnimating = false;
+            BOARD_SIZE = gameOptions.size;
+            const playerCount = gameOptions.players;
+            const shuffledDeck = generateDeck(BOARD_SIZE, playerCount).sort(() => Math.random() - 0.5);
 
-                let joker1Pos, joker2Pos;
-                for (let r = 0; r < BOARD_SIZE; r++) {
-                    gameState.board[r] = [];
-                    for (let c = 0; c < BOARD_SIZE; c++) {
-                        const cardValue = shuffledDeck[r * BOARD_SIZE + c];
-                        gameState.board[r][c] = {
-                            value: cardValue,
-                            collapsed: false,
-                            pawn: null
-                        };
-                        if (cardValue === 'J1') joker1Pos = { r, c };
-                        if (cardValue === 'J2') joker2Pos = { r, c };
-                    }
+            gameState = { board: [], players: [], currentPlayerId: 1, firstTurn: {}, gameOver: false, winner: null, activePlayerCount: playerCount };
+            for(let i=0; i<playerCount; i++){
+                const config = PLAYER_CONFIG[i];
+                gameState.players.push({ ...config, isAI: gameOptions.mode === 'pve' && i === 1, eliminated: false });
+                gameState.firstTurn[i+1] = true;
+            }
+            const jokerPositions = {};
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                gameState.board[r] = [];
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const cardValue = shuffledDeck[r * BOARD_SIZE + c];
+                    gameState.board[r][c] = { value: cardValue, collapsed: false, pawn: null };
+                    if (cardValue.startsWith('J')) jokerPositions[cardValue] = {r,c};
                 }
-
-                gameState.players[0].pos = joker1Pos;
-                gameState.board[joker1Pos.r][joker1Pos.c].pawn = 1;
-
-                gameState.players[1].pos = joker2Pos;
-                gameState.board[joker2Pos.r][joker2Pos.c].pawn = 2;
-
-                render();
-                startTurn();
+            }
+            gameState.players.forEach(player => {
+                const pos = jokerPositions[player.joker];
+                player.pos = pos;
+                gameState.board[pos.r][pos.c].pawn = player.id;
             });
+            render();
+            startTurn();
         }
-
-        function getCardValue(valueStr) {
-            if (valueStr.startsWith('J')) return 0;
-            return parseInt(valueStr, 10);
-        }
-
+        
         function render() {
             boardContainer.innerHTML = '';
+            boardContainer.style.gridTemplateColumns = `repeat(${BOARD_SIZE}, var(--card-size))`;
+            boardContainer.style.gridTemplateRows = `repeat(${BOARD_SIZE}, var(--card-size))`;
             for (let r = 0; r < BOARD_SIZE; r++) {
                 for (let c = 0; c < BOARD_SIZE; c++) {
                     const cellData = gameState.board[r][c];
@@ -330,25 +469,17 @@
                     cardEl.classList.add('card');
                     cardEl.dataset.r = r;
                     cardEl.dataset.c = c;
-                    
                     if (cellData.collapsed) {
                         cardEl.classList.add('collapsed');
                     } else {
                         let displayValue = cellData.value;
-                        if (cellData.value === 'J1') {
-                            displayValue = '★';
-                            cardEl.classList.add('joker-color');
-                        }
-                        if (cellData.value === 'J2') {
-                            displayValue = '☆';
-                            cardEl.classList.add('joker-bw');
-                        }
-                        if (!isNaN(parseInt(cellData.value))) {
-                            cardEl.classList.add(`value-${cellData.value}`);
+                        const playerConfig = PLAYER_CONFIG.find(p => p.joker === cellData.value);
+                        if (playerConfig) {
+                            displayValue = playerConfig.symbol;
+                            cardEl.style.color = playerConfig.color;
                         }
                         cardEl.textContent = displayValue;
                     }
-
                     if (cellData.pawn) {
                         const pawnEl = document.createElement('div');
                         pawnEl.classList.add('pawn', `pawn${cellData.pawn}`);
@@ -358,109 +489,129 @@
                 }
             }
             updateGameInfo();
+            highlightCurrentPlayer();
         }
         
-        function updateGameInfo() {
+        async function updateGameInfo() {
             if (gameState.gameOver) {
+                // Change 5: Reset background tint on game over
+                document.documentElement.style.setProperty('--player-tint-color', 'transparent');
                 showVictoryScreen();
             } else {
                 const currentPlayer = gameState.players[gameState.currentPlayerId - 1];
-                gameInfo.innerHTML = `Player ${currentPlayer.id}'s Turn`;
+                const turnText = `Player ${currentPlayer.id}'s Turn ${currentPlayer.isAI ? '(AI)' : ''}`;
+                
+                gameInfo.style.opacity = 0;
+                await new Promise(res => setTimeout(res, 150));
+                gameInfo.innerHTML = turnText;
                 gameInfo.style.color = currentPlayer.color;
+                gameInfo.style.opacity = 1;
+
+                // Change 5: Set background tint to current player's color
+                const playerColorHex = getComputedStyle(document.documentElement).getPropertyValue(`--pawn${currentPlayer.id}-color`).trim();
+                const r = parseInt(playerColorHex.slice(1, 3), 16);
+                const g = parseInt(playerColorHex.slice(3, 5), 16);
+                const b = parseInt(playerColorHex.slice(5, 7), 16);
+                const tintColor = `rgba(${r}, ${g}, ${b}, 0.15)`; // 15% opacity tint
+                document.documentElement.style.setProperty('--player-tint-color', tintColor);
             }
         }
         
         function highlightCurrentPlayer() {
             document.querySelectorAll('.pawn.highlight-current').forEach(el => el.classList.remove('highlight-current'));
-            
             if(gameState.gameOver) return;
-
-            const currentPlayer = gameState.players[gameState.currentPlayerId - 1];
-            const startPos = currentPlayer.pos;
-            const startCardEl = document.querySelector(`.card[data-r='${startPos.r}'][data-c='${startPos.c}']`);
-            
+            const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId);
+            if(!currentPlayer || currentPlayer.eliminated) return;
+            const startCardEl = document.querySelector(`.card[data-r='${currentPlayer.pos.r}'][data-c='${currentPlayer.pos.c}']`);
             if (startCardEl) {
                 const pawnEl = startCardEl.querySelector('.pawn');
                 if (pawnEl) {
-                    pawnEl.style.setProperty('--pawn-glow-color', currentPlayer.glowColor);
+                    pawnEl.style.setProperty('--pawn-glow-color', currentPlayer.glow);
                     pawnEl.classList.add('highlight-current');
                 }
             }
         }
 
         function startTurn() {
-            if (gameState.gameOver) return;
-            
+            if (gameState.gameOver || isAnimating) return;
             const currentPlayer = gameState.players[gameState.currentPlayerId - 1];
             const legalMoves = getLegalMoves(currentPlayer);
-
             if (legalMoves.length === 0) {
-                gameState.gameOver = true;
-                gameState.winner = gameState.currentPlayerId === 1 ? 2 : 1;
-                render(); // This will trigger the victory screen via updateGameInfo
+                handlePlayerElimination(currentPlayer);
                 return;
             }
+            if (currentPlayer.isAI) AITurn(legalMoves);
+            else highlightCurrentPlayer();
+        }
+
+        async function handlePlayerElimination(player) {
+            isAnimating = true;
+            player.eliminated = true;
+            gameState.activePlayerCount--;
             
-            highlightCurrentPlayer();
+            const cardEl = document.querySelector(`.card[data-r='${player.pos.r}'][data-c='${player.pos.c}']`);
+            if(cardEl) cardEl.classList.add('collapsed');
+            gameState.board[player.pos.r][player.pos.c].collapsed = true;
+            
+            gameInfo.style.opacity = 0;
+            await new Promise(res => setTimeout(res, 150));
+            gameInfo.innerHTML = `<span style="color:${player.color}">Player ${player.id} eliminated!</span>`;
+            gameInfo.style.opacity = 1;
+
+            if (gameState.activePlayerCount <= 1) {
+                gameState.gameOver = true;
+                const winner = gameState.players.find(p => !p.eliminated);
+                gameState.winner = winner ? winner.id : null;
+                setTimeout(() => { isAnimating = false; render(); }, 1500);
+            } else {
+                setTimeout(() => { isAnimating = false; switchPlayer(); }, 1500);
+            }
+        }
+
+        function switchPlayer() {
+            let nextPlayerId = gameState.currentPlayerId;
+            do {
+                nextPlayerId = (nextPlayerId % gameState.players.length) + 1;
+            } while (gameState.players[nextPlayerId - 1].eliminated);
+            gameState.currentPlayerId = nextPlayerId;
+            updateGameInfo();
+            startTurn();
         }
 
         function getLegalMoves(player) {
             const startPos = player.pos;
             const cardValue = gameState.board[startPos.r][startPos.c].value;
             let moveDistances = [];
-
-            if (gameState.firstTurn[player.id]) {
-                moveDistances = [1, 2, 3, 4];
-            } else {
-                const dist = getCardValue(cardValue);
-                if (dist > 0) moveDistances.push(dist);
-            }
-            
-            if (moveDistances.length === 0) return [];
-            
+            if (gameState.firstTurn[player.id]) moveDistances = [1, 2, 3, 4];
+            else { const dist = parseInt(cardValue, 10); if (dist > 0) moveDistances.push(dist); }
             let allMoves = new Set();
             moveDistances.forEach(dist => {
-                 const moves = findPaths(startPos, dist);
+                 const moves = findPaths(startPos, dist, player.id);
                  moves.forEach(move => allMoves.add(`${move.r},${move.c}`));
             });
-            
-            return Array.from(allMoves).map(s => {
-                const [r, c] = s.split(',').map(Number);
-                return { r, c };
-            });
+            return Array.from(allMoves).map(s => { const [r, c] = s.split(',').map(Number); return { r, c }; });
         }
         
-        function findPaths(startPos, distance) {
+        function findPaths(startPos, distance, playerId) {
             const queue = [{ pos: startPos, steps: distance, path: [startPos] }];
             const destinations = new Map();
-            const opponentId = gameState.currentPlayerId === 1 ? 2 : 1;
-            const opponentPos = gameState.players[opponentId - 1].pos;
-
+            const otherPlayerPositions = gameState.players.filter(p => p.id !== playerId && !p.eliminated).map(p => `${p.pos.r},${p.pos.c}`);
             while (queue.length > 0) {
                 const { pos, steps, path } = queue.shift();
-
                 if (steps === 0) {
-                    if (pos.r !== opponentPos.r || pos.c !== opponentPos.c) {
-                        destinations.set(`${pos.r},${pos.c}`, pos);
-                    }
+                    if (!otherPlayerPositions.includes(`${pos.r},${pos.c}`)) destinations.set(`${pos.r},${pos.c}`, pos);
                     continue;
                 }
-
                 const directions = [{r: -1, c: 0}, {r: 1, c: 0}, {r: 0, c: -1}, {r: 0, c: 1}];
-                
                 for (const dir of directions) {
-                    let nextR = pos.r + dir.r;
-                    let nextC = pos.c + dir.c;
-
+                    let nextR = pos.r + dir.r, nextC = pos.c + dir.c;
                     if (nextR < 0) { if (!isEdgeCollapsed('top', nextC)) nextR = BOARD_SIZE - 1; else continue; }
                     if (nextR >= BOARD_SIZE) { if (!isEdgeCollapsed('bottom', nextC)) nextR = 0; else continue; }
                     if (nextC < 0) { if (!isEdgeCollapsed('left', nextR)) nextC = BOARD_SIZE - 1; else continue; }
                     if (nextC >= BOARD_SIZE) { if (!isEdgeCollapsed('right', nextR)) nextC = 0; else continue; }
-                    
                     const nextPos = { r: nextR, c: nextC };
                     if (gameState.board[nextPos.r][nextPos.c].collapsed) continue;
                     if (path.some(p => p.r === nextPos.r && p.c === nextPos.c)) continue;
-                    
                     queue.push({ pos: nextPos, steps: steps - 1, path: [...path, nextPos] });
                 }
             }
@@ -468,58 +619,117 @@
         }
 
         function isEdgeCollapsed(edge, index) {
-            switch (edge) {
-                case 'top': return gameState.board[0][index].collapsed;
-                case 'bottom': return gameState.board[BOARD_SIZE - 1][index].collapsed;
-                case 'left': return gameState.board[index][0].collapsed;
-                case 'right': return gameState.board[index][BOARD_SIZE - 1].collapsed;
-            }
+            if (edge === 'top') return gameState.board[0][index].collapsed;
+            if (edge === 'bottom') return gameState.board[BOARD_SIZE - 1][index].collapsed;
+            if (edge === 'left') return gameState.board[index][0].collapsed;
+            if (edge === 'right') return gameState.board[index][BOARD_SIZE - 1].collapsed;
             return true;
+        }
+        
+        function animatePawnMove(fromPos, toPos, player, callback) {
+            isAnimating = true;
+            const fromCard = document.querySelector(`.card[data-r='${fromPos.r}'][data-c='${fromPos.c}']`);
+            const toCard = document.querySelector(`.card[data-r='${toPos.r}'][data-c='${toPos.c}']`);
+            if (!fromCard || !toCard) { isAnimating = false; callback(); return; }
+
+            const fromRect = fromCard.getBoundingClientRect();
+            const toRect = toCard.getBoundingClientRect();
+            
+            const ghost = document.createElement('div');
+            ghost.className = `ghost-pawn pawn${player.id}`;
+            ghost.style.backgroundColor = player.color;
+            ghost.style.top = `${fromRect.top + fromRect.height / 2}px`;
+            ghost.style.left = `${fromRect.left + fromRect.width / 2}px`;
+            document.body.appendChild(ghost);
+            
+            requestAnimationFrame(() => {
+                ghost.style.top = `${toRect.top + toRect.height / 2}px`;
+                ghost.style.left = `${toRect.left + toRect.width / 2}px`;
+            });
+            
+            ghost.addEventListener('transitionend', () => {
+                document.body.removeChild(ghost);
+                isAnimating = false;
+                callback();
+            }, { once: true });
+        }
+        
+        function performMove(toPos, player) {
+            const fromPos = {...player.pos};
+            animatePawnMove(fromPos, toPos, player, () => {
+                gameState.board[fromPos.r][fromPos.c].pawn = null;
+                gameState.board[toPos.r][toPos.c].pawn = player.id;
+                player.pos = toPos;
+                
+                const cardToCollapse = document.querySelector(`.card[data-r='${fromPos.r}'][data-c='${fromPos.c}']`);
+                if (cardToCollapse) {
+                    cardToCollapse.classList.add('collapsed');
+                }
+                gameState.board[fromPos.r][fromPos.c].collapsed = true;
+                
+                if (gameState.firstTurn[player.id]) gameState.firstTurn[player.id] = false;
+                render(); // Re-render to place the real pawn correctly
+                switchPlayer();
+            });
         }
 
         function handleCardClick(event) {
-            if (gameState.gameOver) return;
+            if (isAnimating || gameState.gameOver) return;
+            const currentPlayer = gameState.players[gameState.currentPlayerId - 1];
+            if (currentPlayer.isAI) return;
             const cardEl = event.target.closest('.card');
             if (!cardEl || cardEl.classList.contains('collapsed')) return;
             
             const toPos = { r: parseInt(cardEl.dataset.r), c: parseInt(cardEl.dataset.c) };
-            const currentPlayer = gameState.players[gameState.currentPlayerId - 1];
             const legalMoves = getLegalMoves(currentPlayer);
             const isLegal = legalMoves.some(m => m.r === toPos.r && m.c === toPos.c);
             
             if (isLegal) {
-                const fromPos = currentPlayer.pos;
-                gameState.board[fromPos.r][fromPos.c].pawn = null;
-                gameState.board[toPos.r][toPos.c].pawn = currentPlayer.id;
-                currentPlayer.pos = toPos;
-                gameState.board[fromPos.r][fromPos.c].collapsed = true;
-                if (gameState.firstTurn[currentPlayer.id]) {
-                    gameState.firstTurn[currentPlayer.id] = false;
-                }
-                gameState.currentPlayerId = gameState.currentPlayerId === 1 ? 2 : 1;
-                render();
-                startTurn();
+                performMove(toPos, currentPlayer);
             } else {
-                // Shake animation for invalid move
                 cardEl.classList.add('shake');
                 cardEl.addEventListener('animationend', () => cardEl.classList.remove('shake'), { once: true });
             }
         }
         
+        function AITurn(legalMoves) {
+            isAnimating = true;
+            setTimeout(() => {
+                const move = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+                performMove(move, gameState.players[gameState.currentPlayerId - 1]);
+            }, 1000);
+        }
+
         function showVictoryScreen() {
-            const winner = gameState.players[gameState.winner - 1];
-            victoryMessage.textContent = `Player ${winner.id} Wins!`;
-            victoryMessage.style.color = winner.color;
+            const winner = gameState.players.find(p => p.id === gameState.winner);
+            const victoryMessageEl = document.getElementById('victory-message');
+            victoryMessageEl.innerHTML = winner ? `Player ${winner.id} Wins!` : `It's a Draw!`;
+            if(winner) {
+                victoryMessageEl.style.color = winner.color;
+                triggerConfetti(winner);
+            }
             victoryScreen.classList.add('visible');
         }
 
-        // --- Event Listeners ---
+        function triggerConfetti(winner) {
+            const container = document.querySelector('.confetti-container');
+            container.innerHTML = '';
+            const colors = [winner.color, winner.glow, '#ffffff'];
+            for (let i = 0; i < 100; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.left = `${Math.random() * 100}%`;
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDelay = `${Math.random() * 2}s`;
+                confetti.style.transform = `scale(${Math.random() * 0.5 + 0.5})`;
+                container.appendChild(confetti);
+            }
+        }
+        
+        // --- Initial Event Listeners ---
         boardContainer.addEventListener('click', handleCardClick);
-        resetButton.addEventListener('click', initGame);
-        playAgainButton.addEventListener('click', initGame);
-
-        // --- Initial Call ---
-        initGame();
+        initSplash();
+        setupUI();
     });
     </script>
 </body>
